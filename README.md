@@ -1,2 +1,2 @@
 # MiniTikTok
-MiniTikTok App to demonstrate usage of Clean Architecture, Exo-Player, MediaCodec,FFmpeg, OpenGL 
+A lightweight MiniTikTok Android app built to demonstrate Clean Architecture and advanced media processing techniques. This project showcases video playback, rendering, and encoding using ExoPlayer, MediaCodec, FFmpeg, and OpenGL.
