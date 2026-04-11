@@ -90,6 +90,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
 
     implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.datasource)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.squareup.okhttp3)

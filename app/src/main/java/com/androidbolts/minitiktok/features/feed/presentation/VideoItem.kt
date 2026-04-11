@@ -1,5 +1,6 @@
 package com.androidbolts.minitiktok.features.feed.presentation
 
+import android.graphics.Color as AndroidColor
 import android.view.ViewGroup
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
@@ -15,11 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -37,68 +33,86 @@ import com.androidbolts.minitiktok.R
 @OptIn(UnstableApi::class)
 @Composable
 fun VideoItem(
-    videoUrl: String,
-    isVisible: Boolean,
+    player: ExoPlayer?,
+    resizeMode: Int,                  // Supplied by the pool — already correct for this URL
+    isActive: Boolean,
+    isPaused: Boolean,
+    onTogglePause: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var isPaused by remember { mutableStateOf(false) }
 
-    val exoPlayer = remember(videoUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(videoUrl))
-            prepare()
-            repeatMode = ExoPlayer.REPEAT_MODE_ONE
-            volume = 1f
+    val playerView = remember {
+        PlayerView(context).apply {
+            setUseController(false)
+            controllerAutoShow      = false
+            controllerHideOnTouch   = false
+            setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+
+            // Hold the last rendered frame when the player is detached.
+            // Prevents the black flash when scrolling back to a previously played video.
+            setKeepContentOnPlayerReset(true)
+
+            // Transparent before the first frame — no opaque black box while buffering.
+            setShutterBackgroundColor(AndroidColor.BLACK)
+
+            // Default: ZOOM fills the screen for portrait content.
+            // The pool overrides this before the player attaches once the real
+            // aspect ratio is known (or from cache on revisits).
+            setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_ZOOM)
+
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            hideController()
         }
     }
 
-    LaunchedEffect(isVisible, isPaused) {
-        when {
-            !isVisible -> exoPlayer.pause()
-            isPaused   -> exoPlayer.pause()
-            else       -> exoPlayer.play()
+    // Attach / detach the player when this page becomes active or inactive.
+    // keepContentOnPlayerReset keeps the last frame visible on detach.
+    DisposableEffect(player, isActive) {
+        if (isActive && player != null) {
+            playerView.player = player
+        } else {
+            playerView.player = null
         }
-    }
-
-    DisposableEffect(exoPlayer) {
-        onDispose { exoPlayer.release() }
+        onDispose {
+            playerView.player = null
+        }
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .clickable(
-                indication = null,
+                indication        = null,
                 interactionSource = remember { MutableInteractionSource() }
-            ) { isPaused = !isPaused },
+            ) {
+                if (isActive) onTogglePause()
+            },
         contentAlignment = Alignment.Center
     ) {
         AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                }
-            },
+            factory  = { playerView },
+            // update runs on the main thread after each recomposition where
+            // resizeMode changed — no player re-attach, just a layout pass.
+            // Because the pool sets pageResizeModeMap BEFORE pagePlayerMap,
+            // the mode is applied before the player is ever bound to this view.
+            update   = { view -> view.setResizeMode(resizeMode) },
             modifier = Modifier.fillMaxSize()
         )
 
         AnimatedVisibility(
-            visible = isPaused,
-            enter = scaleIn(initialScale = 0.5f) + fadeIn(),
-            exit = scaleOut(targetScale = 1.5f) + fadeOut()
+            visible = isActive && isPaused,
+            enter   = scaleIn(initialScale = 0.5f) + fadeIn(),
+            exit    = scaleOut(targetScale  = 1.5f) + fadeOut()
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_pause),
+                painter            = painterResource(R.drawable.ic_pause),
                 contentDescription = "Paused",
-                tint = Color.White.copy(alpha = 0.8f),
-                modifier = Modifier.size(72.dp)
+                tint               = Color.White.copy(alpha = 0.85f),
+                modifier           = Modifier.size(72.dp)
             )
         }
     }
