@@ -9,12 +9,15 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -31,11 +34,12 @@ class VideoPlayerPool(
 
         @Volatile private var sharedCache: SimpleCache? = null
 
-        private fun getCache(context: Context): SimpleCache =
+        private fun getCache(context: Context): Cache =
             sharedCache ?: synchronized(this) {
                 sharedCache ?: SimpleCache(
                     File(context.cacheDir, CACHE_DIR_NAME),
-                    LeastRecentlyUsedCacheEvictor(CACHE_SIZE_BYTES)
+                    LeastRecentlyUsedCacheEvictor(CACHE_SIZE_BYTES),
+                    StandaloneDatabaseProvider(context)
                 ).also { sharedCache = it }
             }
     }
@@ -92,7 +96,11 @@ class VideoPlayerPool(
             .setBufferDurationsMs(5_000, 15_000, 1_500, 3_000)
             .build()
 
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setEnableDecoderFallback(true)
+
         return ExoPlayer.Builder(context)
+            .setRenderersFactory(renderersFactory)
             .setLoadControl(loadControl)
             .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory))
             .build()
@@ -161,6 +169,8 @@ class VideoPlayerPool(
         pageToPlayerIdx.keys.toList().forEach { page ->
             if (page !in wanted) {
                 val idx = pageToPlayerIdx.remove(page) ?: return@forEach
+                players[idx].pause()
+                players[idx].playWhenReady = false
                 playerToPage.remove(idx)
                 pagePlayerMap.remove(page)
                 freed.add(idx)
@@ -230,7 +240,10 @@ class VideoPlayerPool(
             pageResizeModeMap[page] = cachedMode ?: AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         }
 
-        if (playerUrls[playerIdx] == url) return  // Already buffering/ready — skip
+        if (playerUrls[playerIdx] == url) {
+            players[playerIdx].seekTo(0)
+            return
+        }
 
         val player = players[playerIdx]
         player.stop()
@@ -242,3 +255,5 @@ class VideoPlayerPool(
         playerUrls[playerIdx] = url
     }
 }
+
+

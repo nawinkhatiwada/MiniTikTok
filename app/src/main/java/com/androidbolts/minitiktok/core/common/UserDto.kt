@@ -8,7 +8,7 @@ data class UserDto(
     val id: String,
     @SerializedName("name")
     val displayName: String,
-    @SerializedName("name")
+    @SerializedName("username")
     val username: String,
     @SerializedName("email")
     val email: String,
