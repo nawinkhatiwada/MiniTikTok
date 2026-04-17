@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,6 +42,9 @@ fun BottomNavBar(
         modifier = modifier
             .fillMaxWidth()
             .background(Color.Black.copy(alpha = 0.92f))
+            // navigationBarsPadding() is applied AFTER background so the colour
+            // floods the system navigation bar zone — no transparent gap.
+            .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {
         Row(

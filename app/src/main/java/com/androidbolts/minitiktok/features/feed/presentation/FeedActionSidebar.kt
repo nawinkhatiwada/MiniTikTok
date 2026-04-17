@@ -54,7 +54,7 @@ fun FeedActionSidebar(
 ) {
     Column(
         modifier = modifier
-            .padding(end = 12.dp, bottom = 72.dp),
+            .padding(end = 12.dp, bottom = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {

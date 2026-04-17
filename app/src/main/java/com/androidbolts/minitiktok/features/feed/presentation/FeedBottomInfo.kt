@@ -31,7 +31,7 @@ fun FeedBottomInfo(
 ) {
     Column(
         modifier = modifier
-            .padding(start = 16.dp, end = 80.dp, bottom = 80.dp)
+            .padding(start = 16.dp, end = 80.dp, bottom = 16.dp)
     ) {
         // Username + verified
         Row(verticalAlignment = Alignment.CenterVertically) {

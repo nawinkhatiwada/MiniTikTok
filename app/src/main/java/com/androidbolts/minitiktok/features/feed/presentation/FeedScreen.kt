@@ -113,8 +113,6 @@ fun FeedScreen(
 
                 VideoItem(
                     player     = playerPool.pagePlayerMap[page],
-                    // resizeMode is set from cache before the player attaches —
-                    // VideoItem is already the right size when the first frame arrives.
                     resizeMode = playerPool.pageResizeModeMap[page]
                         ?: AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
                     isActive   = pagerState.settledPage == page,

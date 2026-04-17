@@ -1,16 +1,14 @@
 package com.androidbolts.minitiktok
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.androidbolts.minitiktok.features.add.presentation.AddScreen
@@ -26,22 +24,21 @@ fun AppNavGraph() {
     val feedViewModel: FeedViewModel = hiltViewModel()
     val feedUiState by feedViewModel.uiState.collectAsStateWithLifecycle()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        when (selectedTab) {
-            Screen.FeedScreen -> FeedScreen(
-                uiState = feedUiState,
-                onTriggerUserEvent = { feedViewModel.onEvent(it) }
-            )
-            Screen.AddScreen -> AddScreen()
-            Screen.ProfileScreen -> ProfileScreen()
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f)) {
+            when (selectedTab) {
+                Screen.FeedScreen -> FeedScreen(
+                    uiState = feedUiState,
+                    onTriggerUserEvent = { feedViewModel.onEvent(it) }
+                )
+                Screen.AddScreen -> AddScreen()
+                Screen.ProfileScreen -> ProfileScreen()
+            }
         }
 
         BottomNavBar(
             currentScreen = selectedTab,
-            onNavigate = { selectedTab = it },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 6.dp)
+            onNavigate = { selectedTab = it }
         )
     }
 }
