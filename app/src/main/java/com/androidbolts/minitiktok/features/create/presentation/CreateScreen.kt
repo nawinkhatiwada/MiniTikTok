@@ -1,4 +1,4 @@
-package com.androidbolts.minitiktok.features.add.presentation
+package com.androidbolts.minitiktok.features.create.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun AddScreen() {
+fun CreateScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()

@@ -7,7 +7,7 @@ sealed class Screen {
     object FeedScreen: Screen()
 
     @Serializable
-    object AddScreen: Screen()
+    object CreateScreen: Screen()
 
     @Serializable
     object ProfileScreen: Screen()

@@ -9,9 +9,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.androidbolts.minitiktok.features.add.presentation.AddScreen
+import com.androidbolts.minitiktok.features.create.presentation.CreateScreen
 import com.androidbolts.minitiktok.features.feed.presentation.FeedScreen
 import com.androidbolts.minitiktok.features.feed.presentation.FeedViewModel
 import com.androidbolts.minitiktok.features.profile.presentation.ProfileScreen
@@ -31,7 +31,7 @@ fun AppNavGraph() {
                     uiState = feedUiState,
                     onTriggerUserEvent = { feedViewModel.onEvent(it) }
                 )
-                Screen.AddScreen -> AddScreen()
+                Screen.CreateScreen -> CreateScreen()
                 Screen.ProfileScreen -> ProfileScreen()
             }
         }
