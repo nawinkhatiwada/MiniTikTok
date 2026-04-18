@@ -1,5 +1,6 @@
 [versions]
 agp = "9.1.0"
+camerax = "1.4.2"
 coilCompose = "3.4.0"
 converterGson = "3.0.0"
 coreKtx = "1.18.0"
@@ -22,6 +23,11 @@ okhttpProfiler = "1.0.8"
 
 
 [libraries]
+androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+androidx-camera-video = { module = "androidx.camera:camera-video", version.ref = "camerax" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "foundation" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
