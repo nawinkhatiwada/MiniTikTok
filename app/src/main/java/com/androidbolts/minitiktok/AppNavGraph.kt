@@ -50,7 +50,8 @@ fun AppNavGraph() {
                 when (selectedTab) {
                     Screen.FeedScreen -> FeedScreen(
                         uiState = feedUiState,
-                        onTriggerUserEvent = { feedViewModel.onEvent(it) }
+                        onTriggerUserEvent = { feedViewModel.onEvent(it) },
+                        isVisible = !showCreateScreen && editUri == null
                     )
 
                     Screen.ProfileScreen -> ProfileScreen()

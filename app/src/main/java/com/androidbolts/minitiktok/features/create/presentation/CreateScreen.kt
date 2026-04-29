@@ -1,6 +1,7 @@
 package com.androidbolts.minitiktok.features.create.presentation
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -53,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -68,6 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -146,6 +149,7 @@ fun CreateScreen(
 
 // ── Camera UI ─────────────────────────────────────────────────────────────────
 
+@SuppressLint("MissingPermission")
 @Composable
 private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
     val context        = LocalContext.current
@@ -160,7 +164,7 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
     val videoCapture = cameraVm.videoCapture
 
     // ── UI state ──────────────────────────────────────────────────────────────
-    var lensFacing      by remember { mutableStateOf(cameraVm.lastLensFacing) }
+    var lensFacing      by remember { mutableIntStateOf(cameraVm.lastLensFacing) }
     var isRecording     by remember { mutableStateOf(false) }
     var capturedUri     by remember { mutableStateOf<Uri?>(null) }
     var activeRecording        by remember { mutableStateOf<Recording?>(null) }
@@ -184,7 +188,7 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
         PreviewView(context).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE // TextureView
             scaleType          = PreviewView.ScaleType.FILL_CENTER
-        }.also { pv -> preview.setSurfaceProvider(pv.surfaceProvider) }
+        }.also { pv -> preview.surfaceProvider = pv.surfaceProvider }
     }
 
     // Persist lens choice and immediately fade-out to hide the camera-switch black gap

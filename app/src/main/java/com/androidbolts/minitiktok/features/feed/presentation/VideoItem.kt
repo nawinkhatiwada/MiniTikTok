@@ -1,6 +1,7 @@
 package com.androidbolts.minitiktok.features.feed.presentation
 
 import android.graphics.Color as AndroidColor
+import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
@@ -42,9 +43,13 @@ fun VideoItem(
 ) {
     val context = LocalContext.current
 
+    // Inflate with surface_type="texture_view" so the player renders into the same
+    // compositor layer as Compose. SurfaceView (the default) punches a transparent
+    // hole through the window and its video layer sits below the app window, which
+    // causes full-screen Compose overlays (CreateScreen, EditScreen) to appear blank
+    // when the feed is the active tab beneath them.
     val playerView = remember {
-        PlayerView(context).apply {
-            setUseController(false)
+        (LayoutInflater.from(context).inflate(R.layout.view_player, null) as PlayerView).apply {
             controllerAutoShow      = false
             controllerHideOnTouch   = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)

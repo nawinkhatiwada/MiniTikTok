@@ -220,6 +220,17 @@ class VideoPlayerPool(
         players.forEach { it.pause(); it.playWhenReady = false; it.volume = 0f }
     }
 
+    /**
+     * Stops all players and clears their media items to release hardware video decoders.
+     * Call when the feed is hidden by an overlay (e.g. Create/Edit screen) so the
+     * captured-video preview can acquire a decoder on decoder-limited devices.
+     * Call [onPageSettled] afterwards to re-prepare players when returning to the feed.
+     */
+    fun releaseDecoders() {
+        players.forEach { it.stop(); it.clearMediaItems(); it.playWhenReady = false; it.volume = 0f }
+        playerUrls.fill(null)
+    }
+
     fun release() {
         players.forEach { it.release() }
         pagePlayerMap.clear()

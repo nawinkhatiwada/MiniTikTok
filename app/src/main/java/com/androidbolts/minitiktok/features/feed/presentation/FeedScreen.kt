@@ -32,7 +32,8 @@ import androidx.media3.common.util.UnstableApi
 @Composable
 fun FeedScreen(
     uiState: FeedUiState,
-    onTriggerUserEvent: (FeedUserEvent) -> Unit
+    onTriggerUserEvent: (FeedUserEvent) -> Unit,
+    isVisible: Boolean = true
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -43,6 +44,21 @@ fun FeedScreen(
 
     // isPaused resets to false every time the user lands on a new page
     var isPaused by remember(pagerState.settledPage) { mutableStateOf(false) }
+
+    // ── Visibility: free decoders when an overlay covers the feed ────────────
+    // VideoPlayerPool keeps up to 5 prepared ExoPlayers. On decoder-limited devices
+    // the captured-video preview can't acquire a decoder while those are held,
+    // resulting in a black screen. Stopping them frees the decoders immediately;
+    // onPageSettled re-prepares when we return.
+    LaunchedEffect(isVisible) {
+        if (!isVisible) {
+            playerPool.releaseDecoders()
+        } else if (uiState.videos.isNotEmpty()) {
+            val urlMap = uiState.videos.indices.associate { i -> i to uiState.videos[i].mediaUrl }
+            playerPool.onPageSettled(pagerState.settledPage, urlMap)
+            if (!isPaused) playerPool.play(pagerState.settledPage)
+        }
+    }
 
     // ── Lifecycle: release players when the composable leaves composition ─────
     DisposableEffect(Unit) {
