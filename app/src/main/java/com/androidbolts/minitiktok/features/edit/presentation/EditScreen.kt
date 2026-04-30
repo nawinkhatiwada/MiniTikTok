@@ -1,9 +1,14 @@
 package com.androidbolts.minitiktok.features.edit.presentation
 
 import android.net.Uri
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -25,14 +31,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetScaffoldState
-import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -40,9 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -51,16 +51,18 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
-import kotlinx.coroutines.launch
 import coil3.compose.AsyncImage
 import com.androidbolts.minitiktok.R
 import com.androidbolts.minitiktok.features.create.presentation.VideoPreview
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
-// Video scales from 1.0 → 0.6 over this many dp of sheet drag.
-private val SCALING_RANGE_DP = 280.dp
+// Sheet expands to this fraction of screen height.
+private const val EXPANDED_SHEET_FRACTION = 0.40f
 
 // ── Tool descriptors ──────────────────────────────────────────────────────────
 
@@ -84,7 +86,6 @@ private val editTools = listOf(
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditScreen(
     uri: Uri,
@@ -100,70 +101,76 @@ fun EditScreen(
     val density = LocalDensity.current
     val scope   = rememberCoroutineScope()
 
-    val sheetState   = rememberStandardBottomSheetState(
-        initialValue    = SheetValue.PartiallyExpanded,
-        skipHiddenState = true
-    )
-    val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = sheetState)
-
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        // Compute peek height so the sheet top aligns exactly with the video bottom.
-        // video height = screenWidth × (16/9).  peekHeight = screenHeight - videoHeight.
-        // Clamp to at least 80dp on very wide screens.
-        val videoHeight: Dp = maxWidth * (16f / 9f)
-        val peekHeight: Dp  = (maxHeight - videoHeight).coerceAtLeast(80.dp)
+        // peekHeight fills the gap below the 9:16 video so the sheet top aligns
+        // exactly with the video bottom. expandedHeight = 40% of the screen.
+        val videoHeight: Dp    = maxWidth * (16f / 9f)
+        val peekHeight: Dp     = (maxHeight - videoHeight).coerceAtLeast(80.dp)
+        val expandedHeight: Dp = maxHeight * EXPANDED_SHEET_FRACTION
 
-        val screenHeightPx  = constraints.maxHeight.toFloat()
-        val peekPx          = with(density) { peekHeight.toPx() }
-        val scalingRangePx  = with(density) { SCALING_RANGE_DP.toPx() }
+        val collapsedOffsetPx = with(density) { (maxHeight - peekHeight).toPx() }
+        val expandedOffsetPx  = with(density) { (maxHeight - expandedHeight).toPx() }
+        val scalingRangePx    = collapsedOffsetPx - expandedOffsetPx
 
-        // 0f = sheet at peek  →  1f = video fully scaled
-        val sheetProgress by remember(screenHeightPx, peekPx, scalingRangePx) {
+        // Sheet Y offset — drives everything. 0px = top of screen (impossible here);
+        // collapsedOffsetPx = peeking; expandedOffsetPx = fully open.
+        val sheetOffset = remember { Animatable(0f) }
+
+        // Initialise / update bounds whenever layout metrics change.
+        LaunchedEffect(collapsedOffsetPx, expandedOffsetPx) {
+            sheetOffset.updateBounds(expandedOffsetPx, collapsedOffsetPx)
+            sheetOffset.snapTo(collapsedOffsetPx)
+        }
+
+        // 0f = collapsed  →  1f = fully expanded
+        val sheetProgress by remember {
             derivedStateOf {
-                val collapsedOffset = screenHeightPx - peekPx
-                val offset = try {
-                    sheetState.requireOffset()
-                } catch (_: Throwable) {
-                    collapsedOffset
-                }
-                val draggedUp = (collapsedOffset - offset).coerceAtLeast(0f)
-                (draggedUp / scalingRangePx).coerceIn(0f, 1f)
+                if (scalingRangePx == 0f) 0f
+                else ((collapsedOffsetPx - sheetOffset.value) / scalingRangePx).coerceIn(0f, 1f)
             }
         }
 
-        BottomSheetScaffold(
-            scaffoldState        = scaffoldState,
-            sheetPeekHeight      = peekHeight,
-            containerColor       = Color.Black,
-            sheetContainerColor  = Color(0xFF111111),
-            sheetTonalElevation  = 0.dp,
-            sheetShadowElevation = 0.dp,
-            sheetShape           = RectangleShape,
-            sheetDragHandle      = null,
-            sheetContent         = { EditSheetContent() }
-        ) { innerPadding ->
-            // Detect vertical swipes on the video body and snap the sheet to the
-            // nearest anchor — expands on swipe-up, collapses on swipe-down.
+        // Shared drag state — used by both the video area and the sheet strip so
+        // dragging anywhere moves the sheet smoothly in real-time.
+        val draggableState = rememberDraggableState { delta ->
+            scope.launch {
+                sheetOffset.snapTo(
+                    (sheetOffset.value + delta).coerceIn(expandedOffsetPx, collapsedOffsetPx)
+                )
+            }
+        }
+
+        fun settle(velocityPx: Float) {
+            scope.launch {
+                val midpoint = (collapsedOffsetPx + expandedOffsetPx) / 2f
+                val target = when {
+                    velocityPx < -500f -> expandedOffsetPx
+                    velocityPx >  500f -> collapsedOffsetPx
+                    sheetOffset.value < midpoint -> expandedOffsetPx
+                    else -> collapsedOffsetPx
+                }
+                sheetOffset.animateTo(
+                    target,
+                    spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness    = Spring.StiffnessMedium
+                    )
+                )
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+
+            // ── Video body — padded at bottom by peek height ──────────────────
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
-                    .pointerInput(sheetState) {
-                        var netDelta = 0f
-                        detectVerticalDragGestures(
-                            onDragStart  = { netDelta = 0f },
-                            onDragCancel = { netDelta = 0f },
-                            onDragEnd    = {
-                                scope.launch {
-                                    if (netDelta < -10f) sheetState.expand()
-                                    else if (netDelta > 10f) sheetState.partialExpand()
-                                }
-                            }
-                        ) { change, dragAmount ->
-                            change.consume()
-                            netDelta += dragAmount
-                        }
-                    }
+                    .padding(bottom = peekHeight)
+                    .draggable(
+                        state          = draggableState,
+                        orientation    = Orientation.Vertical,
+                        onDragStopped  = { velocityPx -> settle(velocityPx) }
+                    )
             ) {
                 VideoLayer(
                     uri           = uri,
@@ -172,6 +179,21 @@ fun EditScreen(
                     sheetProgress = sheetProgress,
                     onBack        = onBack
                 )
+            }
+
+            // ── Sheet — slides up/down via offset ─────────────────────────────
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset { IntOffset(0, sheetOffset.value.roundToInt()) }
+                    .background(Color(0xFF111111))
+                    .draggable(
+                        state         = draggableState,
+                        orientation   = Orientation.Vertical,
+                        onDragStopped = { velocityPx -> settle(velocityPx) }
+                    )
+            ) {
+                EditSheetContent(minHeight = expandedHeight)
             }
         }
     }
@@ -191,17 +213,17 @@ private fun VideoLayer(
         modifier         = Modifier.fillMaxSize().background(Color.Black),
         contentAlignment = Alignment.TopCenter
     ) {
-        // 9:16 video — scales down from top-center, corners animate as sheet rises
+        // 9:16 video — scales uniformly from center, corners round as sheet rises
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(9f / 16f)
                 .graphicsLayer {
-                    val s = lerp(1f, 0.60f, sheetProgress)
+                    val s        = lerp(1f, 0.78f, sheetProgress)
                     scaleX          = s
                     scaleY          = s
-                    transformOrigin = TransformOrigin(0.5f, 0f)
-                    val cornerPx    = lerp(0f, 14.dp.toPx(), sheetProgress)
+                    transformOrigin = TransformOrigin(0.5f, 0.5f)
+                    val cornerPx    = lerp(0f, 22.dp.toPx(), sheetProgress)
                     clip            = cornerPx > 0f
                     shape           = RoundedCornerShape(cornerPx)
                 }
@@ -275,11 +297,11 @@ private fun VideoLayer(
 // ── Bottom sheet content ──────────────────────────────────────────────────────
 
 @Composable
-private fun EditSheetContent() {
+private fun EditSheetContent(minHeight: Dp = 200.dp) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 200.dp)
+            .heightIn(min = minHeight)
     ) {
         // Subtle separator between video and sheet
         Box(
