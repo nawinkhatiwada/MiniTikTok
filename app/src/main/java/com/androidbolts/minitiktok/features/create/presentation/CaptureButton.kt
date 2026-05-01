@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -30,10 +31,9 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.input.pointer.util.VelocityTrackerAddPointsFix
-
-private val ButtonSize = 88.dp
-private val InnerSize  = 68.dp
-private val RingStroke = 5.dp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalConfiguration
 
 @Composable
 fun CaptureButton(
@@ -43,6 +43,12 @@ fun CaptureButton(
     onRecordEnd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Sizes derived from screen width so the button scales across all devices
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val buttonSize  = screenWidth * 0.22f
+    val innerSize   = screenWidth * 0.17f
+    val ringStroke  = screenWidth * 0.015f
+
     // Keep latest lambdas without restarting gesture detection
     val latestOnTap         by rememberUpdatedState(onTap)
     val latestOnRecordStart by rememberUpdatedState(onRecordStart)
@@ -76,7 +82,7 @@ fun CaptureButton(
 
     Box(
         modifier = modifier
-            .size(ButtonSize)
+            .requiredSize(buttonSize)   // ignores parent height constraints → always a circle
             .pointerInput(Unit) {
                awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -98,8 +104,13 @@ fun CaptureButton(
     ) {
         // Animated ring drawn on Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokePx = RingStroke.toPx()
+            val strokePx = ringStroke.toPx()
             val radius   = size.minDimension / 2f - strokePx / 2f
+            // inset the arc bounding box by strokePx/2 so it sits on the same
+            // circle as drawCircle (which centers the stroke on the radius)
+            val arcInset = strokePx / 2f
+            val arcSize  = Size(size.width - strokePx, size.height - strokePx)
+            val arcOffset = Offset(arcInset, arcInset)
 
             // Faint ring background
             drawCircle(
@@ -107,13 +118,15 @@ fun CaptureButton(
                 radius = radius,
                 style  = Stroke(strokePx)
             )
-            // TikTok-red progress arc
+            // TikTok-red progress arc — same bounding circle as the ring above
             if (ringAlpha > 0f && progress > 0f) {
                 drawArc(
                     color      = Color(0xFFFF2D55),
                     startAngle = -90f,
                     sweepAngle = 360f * progress,
                     useCenter  = false,
+                    topLeft    = arcOffset,
+                    size       = arcSize,
                     style      = Stroke(width = strokePx, cap = StrokeCap.Round),
                     alpha      = ringAlpha
                 )
@@ -123,7 +136,7 @@ fun CaptureButton(
         // Inner white circle — scales down when recording
         Box(
             modifier = Modifier
-                .size(InnerSize)
+                .size(innerSize)
                 .scale(innerScale)
                 .clip(CircleShape)
                 .background(Color.White)

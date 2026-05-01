@@ -251,11 +251,11 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
             .background(Color.Black)
     ) {
 
-        // ── 9:16 viewfinder ───────────────────────────────────────────────────
+        // ── Camera viewfinder (78 % of screen height) ────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(9f / 16f)
+                .weight(0.78f)
         ) {
             // CameraX 1.4+ with PreviewView.COMPATIBLE (TextureView) automatically
             // mirrors the front camera via TransformationInfo.isMirroring(). Adding
@@ -308,20 +308,18 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
             }
         }
 
-        // ── Controls area (fills remaining screen below the viewfinder) ───────
+        // ── Controls area (22 % of screen height) ────────────────────────────
         Box(
             modifier         = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(0.22f)
+                .navigationBarsPadding(),
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(vertical = 16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Context-sensitive hint
                 Text(
