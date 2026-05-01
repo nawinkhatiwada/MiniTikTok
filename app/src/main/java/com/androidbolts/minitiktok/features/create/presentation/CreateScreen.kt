@@ -62,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -251,16 +252,13 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
             .background(Color.Black)
     ) {
 
-        // ── Camera viewfinder (78 % of screen height) ────────────────────────
+        // ── Camera viewfinder (78 % of screen height) ─────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(0.78f)
+                .clipToBounds()
         ) {
-            // CameraX 1.4+ with PreviewView.COMPATIBLE (TextureView) automatically
-            // mirrors the front camera via TransformationInfo.isMirroring(). Adding
-            // our own scaleX would double-mirror it → unmirrored. So we apply no
-            // manual flip. graphicsLayer is kept only for the alpha fade-in on cold open.
             AndroidView(
                 factory  = { previewView },
                 modifier = Modifier
@@ -277,8 +275,8 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
                 )
             }
 
-            // Captured media preview — shown inside the same 9:16 frame.
-            // Mirror is applied for front-camera captures to match the viewfinder look.
+            // Captured media preview — covers the viewfinder area.
+            // Mirror applied for front-camera captures to match the viewfinder look.
             if (capturedUri != null) {
                 Box(
                     modifier = Modifier
@@ -286,9 +284,8 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
                         .background(Color.Black)
                 ) {
                     if (isVideo) {
-                        val newUrl = capturedUri!!
                         VideoPreview(
-                            uri           = newUrl,
+                            uri           = capturedUri!!,
                             isFrontCamera = capturedWithFrontCamera,
                             modifier      = Modifier.fillMaxSize()
                         )
@@ -308,7 +305,7 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
             }
         }
 
-        // ── Controls area (22 % of screen height) ────────────────────────────
+        // ── Controls area (22 % of screen height) ─────────────────────────────
         Box(
             modifier         = Modifier
                 .fillMaxWidth()
@@ -317,20 +314,19 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier            = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Context-sensitive hint
-                Text(
-                    text = when {
-                        isRecording         -> "Recording…"
-                        capturedUri != null -> ""
-                        else                -> "Hold to record  ·  Tap for photo"
-                    },
-                    color    = Color.White.copy(alpha = 0.82f),
-                    fontSize = 13.sp
-                )
+                // Context-sensitive hint — not rendered when hidden to avoid occupying height
+                if (capturedUri == null) {
+                    Text(
+                        text     = if (isRecording) "Recording…" else "Hold to record  ·  Tap for photo",
+                        color    = Color.White.copy(alpha = 0.82f),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
 
                 Row(
                     modifier = Modifier
@@ -373,7 +369,7 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
                         onRecordStart = {
                             isRecording = true
                             capturedWithFrontCamera = (lensFacing == CameraSelector.LENS_FACING_FRONT)
-                            val file    = File(
+                            val file = File(
                                 context.cacheDir,
                                 "video_${System.currentTimeMillis()}.mp4"
                             )
@@ -419,9 +415,6 @@ private fun CameraContent(onCaptured: (Uri, Boolean) -> Unit) {
                                         indication        = null
                                     ) {
                                         onCaptured(capturedUri!!, capturedWithFrontCamera)
-                                        // capturedUri stays non-null during the exit animation so the
-                                        // media preview remains visible. CreateScreen recomposes fresh
-                                        // (capturedUri = null) when it re-enters on return from Edit.
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
